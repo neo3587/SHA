@@ -1,4 +1,4 @@
-
+﻿
 #pragma once
 
 #ifndef __NEO_SHA_HPP__
@@ -13,7 +13,6 @@
 *
 *	Todo:
 *		- SHA0
-*		- SHA1
 *		- SHA3
 */
 
@@ -107,18 +106,136 @@ namespace neo {
 				return _rotr64(x, sh);
 				#endif
 			}
+			inline uint32_t _rotrl(uint32_t x, int sh) {
+				return _rotl(x, sh);
+			}
+			inline uint64_t _rotrl(uint64_t x, int sh) {
+				#if !defined(_MSC_VER ) && !defined(_rotl64)
+				return (x << sh) | (x >> (64 - sh));
+				#else
+				return _rotl64(x, sh);
+				#endif
+			}
 
-			template<size_t Bits, size_t... Is>
-			inline sha_t<Bits> return_hash(const std::array<uint32_t, 8>& hash, index<Is...>) {
+			template<size_t Bits, size_t N, size_t... Is>
+			inline sha_t<Bits> return_hash(const std::array<uint32_t, N>& hash, index<Is...>) {
 				return {hash[Is]...};
 			}
-			template<size_t Bits, size_t... Is>
-			inline sha_t<Bits> return_hash(const std::array<uint64_t, 8>& hash, index<Is...>) {
+			template<size_t Bits, size_t N, size_t... Is>
+			inline sha_t<Bits> return_hash(const std::array<uint64_t, N>& hash, index<Is...>) {
 				return {reinterpret_cast<const std::array<uint32_t, 16>&>(hash)[Is + !(Is&1) - (Is&1)]...};
 			}
 			
 		}
 
+		namespace __sha1_details {
+
+			using namespace __shared_hash_details;
+
+			struct _sha1_base {
+
+				static sha_t<160> hash(const uint8_t* msg, size_t len) {
+
+					std::array<uint32_t, 5> hash = {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0};
+
+					size_t off;
+					for(off = 0; len - off >= 64; off += 64)
+						compress(hash, &msg[off]);
+
+					// last block stuff (padding)
+
+					std::array<uint8_t, 64> block = {0};
+					size_t lst = len - off;
+
+					std::copy(&msg[off], &msg[off] + lst, block.begin());
+					block[lst] = 0x80;
+
+					if(lst >= 56) {
+						compress(hash, block.data());
+						block.fill(0);
+					}
+
+					reinterpret_cast<size_t&>(block[64 - sizeof(size_t)]) = _bswap(len << 3); // 3º
+					compress(hash, block.data());
+
+					return return_hash<160>(hash, gen_reverse_seq<5>());
+				}
+
+				static void compress(std::array<uint32_t, 5>& state, const uint8_t block[64]) {
+
+					// schedule => w
+					std::array<uint32_t, 80> schedule;
+
+					//  break chunk into sixteen 32-bit big-endian words w[i], 0 ≤ i ≤ 15
+					for(size_t i = 0; i < 16; i++)
+						schedule[i] = _bswap(reinterpret_cast<const uint32_t&>(block[i * sizeof(uint32_t)]));
+
+					// Extend the sixteen 32-bit words into eighty 32-bit words:
+					for(size_t i = 16; i < 80; i++)
+						schedule[i] = _rotrl(schedule[i - 3] ^ schedule[i - 8] ^ schedule[i - 14] ^ schedule[i - 16], 1);
+
+					std::array<uint32_t, 5> hbuff = state;
+
+					// main loop
+					for(size_t i = 0; i < 4; i++) {
+						roundfn_0_20<0, 1, 2, 3, 4>(hbuff, schedule[i * 5 + 0]);
+						roundfn_0_20<4, 0, 1, 2, 3>(hbuff, schedule[i * 5 + 1]);
+						roundfn_0_20<3, 4, 0, 1, 2>(hbuff, schedule[i * 5 + 2]);
+						roundfn_0_20<2, 3, 4, 0, 1>(hbuff, schedule[i * 5 + 3]);
+						roundfn_0_20<1, 2, 3, 4, 0>(hbuff, schedule[i * 5 + 4]);
+					}
+					for(size_t i = 4; i < 8; i++) {
+						roundfn_20_40<0, 1, 2, 3, 4>(hbuff, schedule[i * 5 + 0]);
+						roundfn_20_40<4, 0, 1, 2, 3>(hbuff, schedule[i * 5 + 1]);
+						roundfn_20_40<3, 4, 0, 1, 2>(hbuff, schedule[i * 5 + 2]);
+						roundfn_20_40<2, 3, 4, 0, 1>(hbuff, schedule[i * 5 + 3]);
+						roundfn_20_40<1, 2, 3, 4, 0>(hbuff, schedule[i * 5 + 4]);
+					}
+					for(size_t i = 8; i < 12; i++) {
+						roundfn_40_60<0, 1, 2, 3, 4>(hbuff, schedule[i * 5 + 0]);
+						roundfn_40_60<4, 0, 1, 2, 3>(hbuff, schedule[i * 5 + 1]);
+						roundfn_40_60<3, 4, 0, 1, 2>(hbuff, schedule[i * 5 + 2]);
+						roundfn_40_60<2, 3, 4, 0, 1>(hbuff, schedule[i * 5 + 3]);
+						roundfn_40_60<1, 2, 3, 4, 0>(hbuff, schedule[i * 5 + 4]);
+					}
+					for(size_t i = 12; i < 16; i++) {
+						roundfn_60_80<0, 1, 2, 3, 4>(hbuff, schedule[i * 5 + 0]);
+						roundfn_60_80<4, 0, 1, 2, 3>(hbuff, schedule[i * 5 + 1]);
+						roundfn_60_80<3, 4, 0, 1, 2>(hbuff, schedule[i * 5 + 2]);
+						roundfn_60_80<2, 3, 4, 0, 1>(hbuff, schedule[i * 5 + 3]);
+						roundfn_60_80<1, 2, 3, 4, 0>(hbuff, schedule[i * 5 + 4]);
+					}
+
+					for(size_t i = 0; i < 5; i++)
+						state[i] += hbuff[i];
+
+				}
+
+				template<size_t a, size_t b, size_t c, size_t d, size_t e>
+				inline static void roundfn_0_20(std::array<uint32_t, 5>& st, uint32_t w) {
+					roundfn_shared<a, b, c, d, e>(st, (st[b] & st[c]) | (~st[b] & st[d]), 0x5A827999, w);
+				}
+				template<size_t a, size_t b, size_t c, size_t d, size_t e>
+				inline static void roundfn_20_40(std::array<uint32_t, 5>& st, uint32_t w) {
+					roundfn_shared<a, b, c, d, e>(st, st[b] ^ st[c] ^ st[d], 0x6ED9EBA1, w);
+				}
+				template<size_t a, size_t b, size_t c, size_t d, size_t e>
+				inline static void roundfn_40_60(std::array<uint32_t, 5>& st, uint32_t w) {
+					roundfn_shared<a, b, c, d, e>(st, (st[b] & st[c]) | (st[b] & st[d]) | (st[c] & st[d]), 0x8F1BBCDC, w);
+				}
+				template<size_t a, size_t b, size_t c, size_t d, size_t e>
+				inline static void roundfn_60_80(std::array<uint32_t, 5>& st, uint32_t w) {
+					roundfn_shared<a, b, c, d, e>(st, st[b] ^ st[c] ^ st[d], 0xCA62C1D6, w);
+				}
+				template<size_t a, size_t b, size_t c, size_t d, size_t e>
+				inline static void roundfn_shared(std::array<uint32_t, 5>& st, uint32_t f, uint32_t k, uint32_t w) {
+					st[e] = _rotrl(st[a], 5) + f + st[e] + k + w;
+					st[b] = _rotrl(st[b], 30);
+				}
+
+			};
+
+		}
 		namespace __sha2_details {
 
 			using namespace __shared_hash_details;
@@ -213,88 +330,95 @@ namespace neo {
 			}
 
 			template<class T, size_t Bits, size_t Rounds, size_t Blk>
-			class _sha2_base {
+			struct _sha2_base {
 
-				public:
+				static constexpr std::array<int, 12> seq = unique_vals<T>();
 
-					static constexpr std::array<int, 12> seq = unique_vals<T>();
+				static sha_t<Bits> hash(const uint8_t* msg, size_t len) {
 
-					static sha_t<Bits> hash(const uint8_t* msg, size_t len) {
+					std::array<T, 8> hash = init_hash<T, Bits>();
 
-						std::array<T, 8> hash = init_hash<T, Bits>();
+					size_t off;
+					for(off = 0; len - off >= Blk; off += Blk)
+						compress(hash, &msg[off]);
 
-						size_t off;
-						for(off = 0; len - off >= Blk; off += Blk)
-							compress(hash, &msg[off]);
+					// last block stuff (padding)
 
-						// last block stuff (padding)
+					std::array<uint8_t, Blk> block = {0};
+					size_t lst = len - off;
 
-						std::array<uint8_t, Blk> block = {0};
-						size_t lst = len - off;
+					std::copy(&msg[off], &msg[off] + lst, block.begin());
+					block[lst] = 0x80;
 
-						std::copy(&msg[off], &msg[off] + lst, block.begin());
-						block[lst] = 0x80;
-
-						if(lst >= Blk - 8) {
-							compress(hash, block.data());
-							block.fill(0);
-						}
-
-						reinterpret_cast<size_t&>(block[Blk - sizeof(size_t)]) = _bswap(len << 3); // 3�
+					if(lst >= Blk - 8) {
 						compress(hash, block.data());
-
-						return return_hash<Bits>(hash, gen_reverse_seq<Bits / 32>());
+						block.fill(0);
 					}
 
-					static void compress(std::array<T, 8>& state, const uint8_t block[Blk]) {
+					reinterpret_cast<size_t&>(block[Blk - sizeof(size_t)]) = _bswap(len << 3); // 3º
+					compress(hash, block.data());
 
-						// round_table => k
-						static constexpr std::array<T, Rounds> round_table = get_round_table<T, Rounds>();
+					return return_hash<Bits>(hash, gen_reverse_seq<Bits / 32>());
+				}
 
-						// schedule => w
-						std::array<T, Rounds> schedule;
+				static void compress(std::array<T, 8>& state, const uint8_t block[Blk]) {
 
-						// copy chunk into first 16 words w[0,16) of the message schedule array, big-endian encoding
-						for(size_t i = 0; i < 16; i++)
-							schedule[i] = _bswap(reinterpret_cast<const T&>(block[i * sizeof(T)]));
+					// round_table => k
+					static constexpr std::array<T, Rounds> round_table = get_round_table<T, Rounds>();
 
-						// first 16 words expansion to [16,64/80)
-						for(size_t i = 16; i < Rounds; i++)
-							schedule[i] = schedule[i - 16] + schedule[i - 7]
-							+ (_rotrr(schedule[i - 15], seq[0]) ^ _rotrr(schedule[i - 15], seq[1]) ^ (schedule[i - 15] >> seq[2]))
-							+ (_rotrr(schedule[i - 2], seq[3]) ^ _rotrr(schedule[i - 2], seq[4]) ^ (schedule[i - 2] >> seq[5]));
+					// schedule => w
+					std::array<T, Rounds> schedule;
 
-						std::array<T, 8> hbuff = state;
+					// copy chunk into first 16 words w[0,16) of the message schedule array, big-endian encoding
+					for(size_t i = 0; i < 16; i++)
+						schedule[i] = _bswap(reinterpret_cast<const T&>(block[i * sizeof(T)]));
 
-						// main compression loop (64/80 rounds)
-						for(size_t i = 0; i < Rounds / 8; i++) {
-							round_fn<0, 1, 2, 3, 4, 5, 6, 7>(hbuff, schedule[i * 8 + 0], round_table[i * 8 + 0]);
-							round_fn<7, 0, 1, 2, 3, 4, 5, 6>(hbuff, schedule[i * 8 + 1], round_table[i * 8 + 1]);
-							round_fn<6, 7, 0, 1, 2, 3, 4, 5>(hbuff, schedule[i * 8 + 2], round_table[i * 8 + 2]);
-							round_fn<5, 6, 7, 0, 1, 2, 3, 4>(hbuff, schedule[i * 8 + 3], round_table[i * 8 + 3]);
-							round_fn<4, 5, 6, 7, 0, 1, 2, 3>(hbuff, schedule[i * 8 + 4], round_table[i * 8 + 4]);
-							round_fn<3, 4, 5, 6, 7, 0, 1, 2>(hbuff, schedule[i * 8 + 5], round_table[i * 8 + 5]);
-							round_fn<2, 3, 4, 5, 6, 7, 0, 1>(hbuff, schedule[i * 8 + 6], round_table[i * 8 + 6]);
-							round_fn<1, 2, 3, 4, 5, 6, 7, 0>(hbuff, schedule[i * 8 + 7], round_table[i * 8 + 7]);
-						}
+					// first 16 words expansion to [16,64/80)
+					for(size_t i = 16; i < Rounds; i++)
+						schedule[i] = schedule[i - 16] + schedule[i - 7]
+										+ (_rotrr(schedule[i - 15], seq[0]) ^ _rotrr(schedule[i - 15], seq[1]) ^ (schedule[i - 15] >> seq[2]))
+										+ (_rotrr(schedule[i - 2], seq[3]) ^ _rotrr(schedule[i - 2], seq[4]) ^ (schedule[i - 2] >> seq[5]));
 
-						for(size_t i = 0; i < 8; i++)
-							state[i] += hbuff[i];
+					std::array<T, 8> hbuff = state;
 
+					// main compression loop (64/80 rounds)
+					for(size_t i = 0; i < Rounds / 8; i++) {
+						round_fn<0, 1, 2, 3, 4, 5, 6, 7>(hbuff, schedule[i * 8 + 0], round_table[i * 8 + 0]);
+						round_fn<7, 0, 1, 2, 3, 4, 5, 6>(hbuff, schedule[i * 8 + 1], round_table[i * 8 + 1]);
+						round_fn<6, 7, 0, 1, 2, 3, 4, 5>(hbuff, schedule[i * 8 + 2], round_table[i * 8 + 2]);
+						round_fn<5, 6, 7, 0, 1, 2, 3, 4>(hbuff, schedule[i * 8 + 3], round_table[i * 8 + 3]);
+						round_fn<4, 5, 6, 7, 0, 1, 2, 3>(hbuff, schedule[i * 8 + 4], round_table[i * 8 + 4]);
+						round_fn<3, 4, 5, 6, 7, 0, 1, 2>(hbuff, schedule[i * 8 + 5], round_table[i * 8 + 5]);
+						round_fn<2, 3, 4, 5, 6, 7, 0, 1>(hbuff, schedule[i * 8 + 6], round_table[i * 8 + 6]);
+						round_fn<1, 2, 3, 4, 5, 6, 7, 0>(hbuff, schedule[i * 8 + 7], round_table[i * 8 + 7]);
 					}
 
-					template<size_t a, size_t b, size_t c, size_t d, size_t e, size_t f, size_t g, size_t h>
-					inline static void round_fn(std::array<T, 8>& st, T w, T k) {
-						T tmp = (_rotrr(st[e], seq[6]) ^ _rotrr(st[e], seq[7]) ^ _rotrr(st[e], seq[8])) + ((st[e] & st[f]) ^ (~st[e] & st[g])) + w + k;
-						st[d] += tmp + st[h];
-						st[h] += tmp + (_rotrr(st[a], seq[9]) ^ _rotrr(st[a], seq[10]) ^ _rotrr(st[a], seq[11])) + ((st[a] & st[b]) ^ (st[a] & st[c]) ^ (st[b] & st[c]));
-					}
+					for(size_t i = 0; i < 8; i++)
+						state[i] += hbuff[i];
+
+				}
+
+				template<size_t a, size_t b, size_t c, size_t d, size_t e, size_t f, size_t g, size_t h>
+				inline static void round_fn(std::array<T, 8>& st, T w, T k) {
+					T tmp = (_rotrr(st[e], seq[6]) ^ _rotrr(st[e], seq[7]) ^ _rotrr(st[e], seq[8])) + ((st[e] & st[f]) ^ (~st[e] & st[g])) + w + k;
+					st[d] += tmp + st[h];
+					st[h] += tmp + (_rotrr(st[a], seq[9]) ^ _rotrr(st[a], seq[10]) ^ _rotrr(st[a], seq[11])) + ((st[a] & st[b]) ^ (st[a] & st[c]) ^ (st[b] & st[c]));
+				}
 
 			};
 
 		}
 
 
+		class sha1 {
+
+			public:
+
+				inline static sha_t<160> hash(const uint8_t* msg, size_t len) {
+					return __sha1_details::_sha1_base::hash(msg, len);
+				}
+
+		};
 		class sha2 {
 
 			public:
