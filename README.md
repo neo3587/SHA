@@ -4,8 +4,6 @@ A simple SHA hash function variations implementation for C++
 
 
 TODO:
-  - SHA0
-  - SHA1
   - SHA3
 
 
