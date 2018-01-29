@@ -10,10 +10,6 @@
 *
 *	Notes:
 *		- Compile with std=c++11 or greater
-*
-*	Todo:
-*		- SHA0
-*		- SHA3
 */
 
 
@@ -127,6 +123,10 @@ namespace neo {
 					#endif
 				}
 
+				template<size_t Bits, size_t N, size_t... Is>
+				inline sha_t<Bits> return_hash(const std::array<uint8_t, N>& hash, index<Is...>) {
+					return {hash[Is]...};
+				}
 				template<size_t Bits, size_t N, size_t... Is>
 				inline sha_t<Bits> return_hash(const std::array<uint32_t, N>& hash, index<Is...>) {
 					return {hash[Is]...};
@@ -418,6 +418,96 @@ namespace neo {
 				};
 
 			}
+			namespace __sha3 {
+
+				using namespace neo::hash::__sha_details::__shared;
+
+				template<size_t Bits, uint8_t Delimiter>
+				struct _sha3_base {
+
+					static constexpr size_t capacity = Bits * 2;
+					static constexpr size_t bitrate = 1600 - capacity;
+					static constexpr size_t blk_size = bitrate / 8;
+
+					static sha_t<Bits> hash(const uint8_t* msg, size_t len) {
+
+						union {
+							std::array<std::array<uint64_t, 5>, 5> a_u64;
+							std::array<uint64_t, 25> u64;
+							std::array<uint8_t, 200> u8;
+						} state;
+						state.u64.fill(0);
+
+						size_t off;
+						for(off = 0; len - off >= blk_size; off += blk_size) {
+							for(size_t i = 0; i < blk_size; i++)
+								state.u8[i] ^= msg[off + i];
+							permute(state.a_u64);
+						}
+						
+						size_t lst = len - off;
+						for(size_t i = 0; i < lst; i++)
+							state.u8[i] ^= msg[off + i];
+
+						state.u8[lst] ^= Delimiter;
+						state.u8[blk_size - 1] ^= 0x80;
+						permute(state.a_u64);
+
+						return return_hash<Bits>(state.u8, gen_seq<Bits / 8>());
+					}
+
+					static void permute(std::array<std::array<uint64_t, 5>, 5>& a) {
+
+						static constexpr std::array<uint64_t, 24> round_consts = {
+							0x0000000000000001, 0x0000000000008082, 0x800000000000808A, 0x8000000080008000,
+							0x000000000000808B, 0x0000000080000001, 0x8000000080008081, 0x8000000000008009,
+							0x000000000000008A, 0x0000000000000088, 0x0000000080008009, 0x000000008000000A,
+							0x000000008000808B, 0x800000000000008B, 0x8000000000008089, 0x8000000000008003,
+							0x8000000000008002, 0x8000000000000080, 0x000000000000800A, 0x800000008000000A,
+							0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008
+						};
+						static constexpr std::array<std::array<int, 5>, 5> rot_offs = {{
+							{ 0,  1, 62, 28, 27},
+							{36, 44,  6, 55, 20},
+							{ 3, 10, 43, 25, 39},
+							{41, 45, 15, 21,  8},
+							{18,  2, 61, 56, 14}
+						}};
+
+						std::array<std::array<uint64_t, 5>, 5> b;
+						std::array<uint64_t, 5> c;
+
+						for(size_t rd = 0; rd < 24; rd++) {
+
+							// theta
+							for(size_t x = 0; x < 5; x++)
+								c[x] = a[0][x] ^ a[1][x] ^ a[2][x] ^ a[3][x] ^ a[4][x];
+							for(size_t x = 0; x < 5; x++) {
+								uint64_t dx = c[(x + 4) % 5] ^ _rotrl(c[(x + 1) % 5], 1);
+								for(size_t y = 0; y < 5; y++)
+									a[y][x] ^= dx;
+							}
+
+							// rho & pi
+							for(size_t y = 0; y < 5; y++)
+								for(size_t x = 0; x < 5; x++)
+									b[(x * 2 + y * 3) % 5][y] = _rotrl(a[y][x], rot_offs[y][x]);
+
+							// chi
+							for(size_t y = 0; y < 5; y++)
+								for(size_t x = 0; x < 5; x++)
+									a[y][x] = b[y][x] ^ (~b[y][(x + 1) % 5] & b[y][(x + 2) % 5]);
+
+							// iota
+							a[0][0] ^= round_consts[rd];
+
+						}
+
+					}
+
+				};
+
+			}
 
 		}
 
@@ -452,6 +542,24 @@ namespace neo {
 				}
 				inline static sha_t<256> hash_512_256(const uint8_t* msg, size_t len) {
 					return __sha_details::__sha2::_sha2_base<uint64_t, 256, 80, 128>::hash(msg, len);
+				}
+
+		};
+		class sha3 {
+		
+			public:
+
+				inline static sha_t<224> hash_224(const uint8_t* msg, size_t len) {
+					return __sha_details::__sha3::_sha3_base<224, 0x06>::hash(msg, len);
+				}
+				inline static sha_t<256> hash_256(const uint8_t* msg, size_t len) {
+					return __sha_details::__sha3::_sha3_base<256, 0x06>::hash(msg, len);
+				}
+				inline static sha_t<384> hash_384(const uint8_t* msg, size_t len) {
+					return __sha_details::__sha3::_sha3_base<384, 0x06>::hash(msg, len);
+				}
+				inline static sha_t<512> hash_512(const uint8_t* msg, size_t len) {
+					return __sha_details::__sha3::_sha3_base<512, 0x06>::hash(msg, len);
 				}
 
 		};
