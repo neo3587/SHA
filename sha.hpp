@@ -535,8 +535,8 @@ namespace neo {
 
 			public:
 
-				inline static sha_t<160> hash(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha1::_sha1_base::hash(msg, len);
+				template<class T> inline static sha_t<160> hash(const T* msg, size_t byte_len) {
+					return __sha_details::__sha1::_sha1_base::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
 
 		};
@@ -544,23 +544,23 @@ namespace neo {
 
 			public:
 
-				inline static sha_t<224> hash_224(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha2::_sha2_base<uint32_t, 224, 64, 64>::hash(msg, len);
+				template<class T> inline static sha_t<224> hash_224(const T* msg, size_t byte_len) {
+					return __sha_details::__sha2::_sha2_base<uint32_t, 224, 64, 64>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				inline static sha_t<256> hash_256(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha2::_sha2_base<uint32_t, 256, 64, 64>::hash(msg, len);
+				template<class T> inline static sha_t<256> hash_256(const T* msg, size_t byte_len) {
+					return __sha_details::__sha2::_sha2_base<uint32_t, 256, 64, 64>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				inline static sha_t<384> hash_384(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha2::_sha2_base<uint64_t, 384, 80, 128>::hash(msg, len);
+				template<class T> inline static sha_t<384> hash_384(const T* msg, size_t byte_len) {
+					return __sha_details::__sha2::_sha2_base<uint64_t, 384, 80, 128>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				inline static sha_t<512> hash_512(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha2::_sha2_base<uint64_t, 512, 80, 128>::hash(msg, len);
+				template<class T> inline static sha_t<512> hash_512(const T* msg, size_t byte_len) {
+					return __sha_details::__sha2::_sha2_base<uint64_t, 512, 80, 128>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				inline static sha_t<224> hash_512_224(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha2::_sha2_base<uint64_t, 224, 80, 128>::hash(msg, len);
+				template<class T> inline static sha_t<224> hash_512_224(const T* msg, size_t byte_len) {
+					return __sha_details::__sha2::_sha2_base<uint64_t, 224, 80, 128>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				inline static sha_t<256> hash_512_256(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha2::_sha2_base<uint64_t, 256, 80, 128>::hash(msg, len);
+				template<class T> inline static sha_t<256> hash_512_256(const T* msg, size_t byte_len) {
+					return __sha_details::__sha2::_sha2_base<uint64_t, 256, 80, 128>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
 
 		};
@@ -568,26 +568,26 @@ namespace neo {
 		
 			public:
 
-				inline static sha_t<224> hash_224(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<224, 1152, 448, 0x06>::hash(msg, len);
+				template<class T> inline static sha_t<224> hash_224(const T* msg, size_t byte_len) {
+					return __sha_details::__sha3::_sha3_base<224, 1152, 448, 0x06>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				inline static sha_t<256> hash_256(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<256, 1088, 512, 0x06>::hash(msg, len);
+				template<class T> inline static sha_t<256> hash_256(const T* msg, size_t byte_len) {
+					return __sha_details::__sha3::_sha3_base<256, 1088, 512, 0x06>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				inline static sha_t<384> hash_384(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<384, 832, 768, 0x06>::hash(msg, len);
+				template<class T> inline static sha_t<384> hash_384(const T* msg, size_t byte_len) {
+					return __sha_details::__sha3::_sha3_base<384, 832, 768, 0x06>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				inline static sha_t<512> hash_512(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<512, 576, 1024, 0x06>::hash(msg, len);
+				template<class T> inline static sha_t<512> hash_512(const T* msg, size_t byte_len) {
+					return __sha_details::__sha3::_sha3_base<512, 576, 1024, 0x06>::hash(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
 
-				template<size_t Bits>
-				inline static sha_t<Bits> hash_shake_128(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<Bits, 1344, 256, 0x1f>::hash_shake(msg, len);
+				template<size_t Bits, class T>
+				inline static sha_t<Bits> hash_shake_128(const T* msg, size_t byte_len) {
+					return __sha_details::__sha3::_sha3_base<Bits, 1344, 256, 0x1f>::hash_shake(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
-				template<size_t Bits>
-				inline static sha_t<Bits> hash_shake_256(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<Bits, 1088, 512, 0x1f>::hash_shake(msg, len);
+				template<size_t Bits, class T>
+				inline static sha_t<Bits> hash_shake_256(const T* msg, size_t byte_len) {
+					return __sha_details::__sha3::_sha3_base<Bits, 1088, 512, 0x1f>::hash_shake(reinterpret_cast<const uint8_t*>(msg), byte_len);
 				}
 
 		};
