@@ -422,20 +422,42 @@ namespace neo {
 
 				using namespace neo::hash::__sha_details::__shared;
 
-				template<size_t Bits, uint8_t Delimiter>
+				template<size_t Bits, size_t Bitrate, size_t Capacity, uint8_t Delimiter>
 				struct _sha3_base {
 
-					static constexpr size_t capacity = Bits * 2;
-					static constexpr size_t bitrate = 1600 - capacity;
-					static constexpr size_t blk_size = bitrate / 8;
+					static constexpr size_t blk_size = Bitrate / 8;
+
+					typedef union {
+						std::array<std::array<uint64_t, 5>, 5> a_u64;
+						std::array<uint64_t, 25> u64;
+						std::array<uint8_t, 200> u8;
+					} state_t;
 
 					static sha_t<Bits> hash(const uint8_t* msg, size_t len) {
 
-						union {
-							std::array<std::array<uint64_t, 5>, 5> a_u64;
-							std::array<uint64_t, 25> u64;
-							std::array<uint8_t, 200> u8;
-						} state;
+						state_t state;
+						sponge(state, msg, len);
+
+						return return_hash<Bits>(state.u8, gen_seq<Bits / 8>());
+					}
+					static sha_t<Bits> hash_shake(const uint8_t* msg, size_t len) {
+
+						state_t state;
+						sponge(state, msg, len);
+						
+						// squeeze 
+						std::array<uint8_t, Bits / 8> out;
+						for(size_t i = 0; i < Bits / 8; i += 200) {
+							for(size_t j = i; j < i + 200 && j + i < Bits / 8; j++)
+								out[j] = state.u8[j];
+							permute(state.a_u64);
+						}
+
+						return return_hash<Bits>(out, gen_seq<Bits / 8>());
+					}
+
+					static void sponge(state_t& state, const uint8_t* msg, size_t len) {
+						
 						state.u64.fill(0);
 
 						size_t off;
@@ -444,7 +466,7 @@ namespace neo {
 								state.u8[i] ^= msg[off + i];
 							permute(state.a_u64);
 						}
-						
+
 						size_t lst = len - off;
 						for(size_t i = 0; i < lst; i++)
 							state.u8[i] ^= msg[off + i];
@@ -452,10 +474,7 @@ namespace neo {
 						state.u8[lst] ^= Delimiter;
 						state.u8[blk_size - 1] ^= 0x80;
 						permute(state.a_u64);
-
-						return return_hash<Bits>(state.u8, gen_seq<Bits / 8>());
 					}
-
 					static void permute(std::array<std::array<uint64_t, 5>, 5>& a) {
 
 						static constexpr std::array<uint64_t, 24> round_consts = {
@@ -550,16 +569,25 @@ namespace neo {
 			public:
 
 				inline static sha_t<224> hash_224(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<224, 0x06>::hash(msg, len);
+					return __sha_details::__sha3::_sha3_base<224, 1152, 448, 0x06>::hash(msg, len);
 				}
 				inline static sha_t<256> hash_256(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<256, 0x06>::hash(msg, len);
+					return __sha_details::__sha3::_sha3_base<256, 1088, 512, 0x06>::hash(msg, len);
 				}
 				inline static sha_t<384> hash_384(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<384, 0x06>::hash(msg, len);
+					return __sha_details::__sha3::_sha3_base<384, 832, 768, 0x06>::hash(msg, len);
 				}
 				inline static sha_t<512> hash_512(const uint8_t* msg, size_t len) {
-					return __sha_details::__sha3::_sha3_base<512, 0x06>::hash(msg, len);
+					return __sha_details::__sha3::_sha3_base<512, 576, 1024, 0x06>::hash(msg, len);
+				}
+
+				template<size_t Bits>
+				inline static sha_t<Bits> hash_shake_128(const uint8_t* msg, size_t len) {
+					return __sha_details::__sha3::_sha3_base<Bits, 1344, 256, 0x1f>::hash_shake(msg, len);
+				}
+				template<size_t Bits>
+				inline static sha_t<Bits> hash_shake_256(const uint8_t* msg, size_t len) {
+					return __sha_details::__sha3::_sha3_base<Bits, 1088, 512, 0x1f>::hash_shake(msg, len);
 				}
 
 		};
