@@ -4,7 +4,7 @@ A simple SHA hash function variations implementation for C++
 
 
 TODO:
-  - SHA3
+  - SHA3 (SHAKE128/256)
 
 
 Usage example:
