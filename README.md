@@ -1,6 +1,6 @@
 # SHA
 
-A simple SHA hash function variations implementation for C++
+A simple SHA (Secure Hash Algorithm) hash function variations implementation for C++
 
 
 
@@ -43,3 +43,5 @@ int main(int argc, char* argv[]) {
 }
 ```
 
+
+More info at: https://en.wikipedia.org/wiki/Secure_Hash_Algorithms
